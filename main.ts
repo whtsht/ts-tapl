@@ -8,14 +8,20 @@ export type Term =
   | { tag: "func"; params: Param[]; body: Term }
   | { tag: "call"; func: Term; args: Term[] }
   | { tag: "seq"; body: Term; rest: Term }
-  | { tag: "const"; name: string; value: Term };
+  | { tag: "const"; name: string; init: Term; rest: Term }
+  | { tag: "objectNew"; props: Prop[] }
+  | { tag: "objectGet"; obj: Term; propName: string };
+
+type Prop = { name: string; term: Term };
 
 export type Type =
   | { tag: "Boolean" }
   | { tag: "Number" }
-  | { tag: "Function"; paramTypes: Param[]; returnType: Type };
+  | { tag: "Function"; paramTypes: Param[]; returnType: Type }
+  | { tag: "Object"; propTypes: PropType[] };
 
 export type Param = { name: string; type: Type };
+export type PropType = { name: string; type: Type };
 
 export function typeEquql(t1: Type, t2: Type): boolean {
   switch (t1.tag) {
@@ -35,6 +41,21 @@ export function typeEquql(t1: Type, t2: Type): boolean {
         }
       }
       return typeEquql(t1.returnType, t2.returnType);
+    case "Object":
+      if (t2.tag !== "Object") {
+        return false;
+      }
+      if (t1.propTypes.length !== t2.propTypes.length) {
+        return false;
+      }
+      for (let i = 0; i < t1.propTypes.length; i++) {
+        const prop1 = t1.propTypes[i];
+        const prop2 = t2.propTypes.find((p) => p.name === prop1.name);
+        if (!prop2 || !typeEquql(prop1.type, prop2.type)) {
+          return false;
+        }
+      }
+      return true;
     default:
       throw new Error("not yet implemented");
   }
@@ -103,7 +124,34 @@ export function typecheck(term: Term, env: typeEnv): Type {
       }
       return funcType.returnType;
     }
+    case "seq": {
+      typecheck(term.body, env);
+      return typecheck(term.rest, env);
+    }
+    case "const": {
+      const initType = typecheck(term.init, env);
+      const newEnv = { ...env, [term.name]: initType };
+      return typecheck(term.rest, newEnv);
+    }
+    case "objectNew": {
+      const propTypes: PropType[] = term.props.map(({ name, term }) => ({
+        name,
+        type: typecheck(term, env),
+      }));
+      return { tag: "Object", propTypes };
+    }
+    case "objectGet": {
+      const objType = typecheck(term.obj, env);
+      if (objType.tag !== "Object") {
+        throw new Error("Can only get properties from objects");
+      }
+      const propType = objType.propTypes.find((p) => p.name === term.propName);
+      if (!propType) {
+        throw new Error(`Property ${term.propName} does not exist on object`);
+      }
+      return propType.type;
+    }
     default:
-      throw new Error(`Unknown term tag: ${term.tag}`);
+      throw new Error(`not yet implemented`);
   }
 }

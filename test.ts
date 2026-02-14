@@ -1,4 +1,4 @@
-import { parse as parse_, parseArith } from "./tiny-ts-parser.ts";
+import { parse as parse_ } from "./tiny-ts-parser.ts";
 import { assertEquals } from "@std/assert";
 import { assertThrows } from "@std/assert";
 import { typecheck } from "./main.ts";
@@ -14,23 +14,23 @@ function genEnv(): Record<string, Type> {
 
 Deno.test("test typecheck ok", () => {
   assertEquals(
-    typecheck(parseArith("true"), genEnv()),
+    typecheck(parse("true"), genEnv()),
     { tag: "Boolean" },
   );
   assertEquals(
-    typecheck(parseArith("false"), genEnv()),
+    typecheck(parse("false"), genEnv()),
     { tag: "Boolean" },
   );
   assertEquals(
-    typecheck(parseArith("42"), genEnv()),
+    typecheck(parse("42"), genEnv()),
     { tag: "Number" },
   );
   assertEquals(
-    typecheck(parseArith("true ? 1 : 2"), genEnv()),
+    typecheck(parse("true ? 1 : 2"), genEnv()),
     { tag: "Number" },
   );
   assertEquals(
-    typecheck(parseArith("1 + 2"), genEnv()),
+    typecheck(parse("1 + 2"), genEnv()),
     { tag: "Number" },
   );
 
@@ -70,17 +70,17 @@ Deno.test("test typecheck ok", () => {
 
 Deno.test("Add operands test", () => {
   assertThrows(
-    () => typecheck(parseArith("1 + true"), genEnv()),
+    () => typecheck(parse("1 + true"), genEnv()),
     Error,
     "Both operands of add must be Numbers",
   );
   assertThrows(
-    () => typecheck(parseArith("true + 1"), genEnv()),
+    () => typecheck(parse("true + 1"), genEnv()),
     Error,
     "Both operands of add must be Numbers",
   );
   assertThrows(
-    () => typecheck(parseArith("true + false"), genEnv()),
+    () => typecheck(parse("true + false"), genEnv()),
     Error,
     "Both operands of add must be Numbers",
   );
@@ -88,12 +88,12 @@ Deno.test("Add operands test", () => {
 
 Deno.test("Condition of if must be a Boolean", () => {
   assertThrows(
-    () => typecheck(parseArith("1 ? 1 : 2"), genEnv()),
+    () => typecheck(parse("1 ? 1 : 2"), genEnv()),
     Error,
     "Condition of if must be a Boolean",
   );
   assertThrows(
-    () => typecheck(parseArith("42 ? true : false"), genEnv()),
+    () => typecheck(parse("42 ? true : false"), genEnv()),
     Error,
     "Condition of if must be a Boolean",
   );
@@ -101,12 +101,12 @@ Deno.test("Condition of if must be a Boolean", () => {
 
 Deno.test("Then and else branches must have the same type", () => {
   assertThrows(
-    () => typecheck(parseArith("true ? 1 : false"), genEnv()),
+    () => typecheck(parse("true ? 1 : false"), genEnv()),
     Error,
     "Then and else branches must have the same type",
   );
   assertThrows(
-    () => typecheck(parseArith("false ? true : 42"), genEnv()),
+    () => typecheck(parse("false ? true : 42"), genEnv()),
     Error,
     "Then and else branches must have the same type",
   );
@@ -128,14 +128,41 @@ Deno.test("undefined variable test", () => {
 
 Deno.test("test typecheck complex", () => {
   assertEquals(
-    typecheck(parseArith("true ? (1 + 2) : (3 + 4)"), genEnv()),
+    typecheck(parse("true ? (1 + 2) : (3 + 4)"), genEnv()),
     { tag: "Number" },
   );
+
   assertEquals(
-    typecheck(parseArith("false ? (true ? 1 : 2) : (false ? 3 : 4)"), genEnv()),
+    typecheck(parse("false ? (true ? 1 : 2) : (false ? 3 : 4)"), genEnv()),
     { tag: "Number" },
   );
+
   assertThrows(() =>
-    typecheck(parseArith("((true : false : true) ? 1 : 2) ? 2 : 3"), genEnv())
+    typecheck(parse("((true : false : true) ? 1 : 2) ? 2 : 3"), genEnv())
+  );
+
+  assertEquals(
+    typecheck(
+      parse(
+        `const add = (x: number, y: number) => x + y;
+        const select = (b: boolean, x: number, y: number) => b ? x : y;
+        const a = add(1, 2);
+        const b = select(true, 42, a);
+        b`,
+      ),
+      genEnv(),
+    ),
+    { tag: "Number" },
+  );
+
+  assertEquals(
+    typecheck(
+      parse(
+      `const a = { x: 1, y: true };
+      a.y;`,
+      ),
+      genEnv(),
+    ),
+    { tag: "Boolean" },
   );
 });
