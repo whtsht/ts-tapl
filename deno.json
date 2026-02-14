@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "main": "deno run main.ts",
+    "test": "deno test --allow-env --allow-sys"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.18",
+    "@typescript-eslint/typescript-estree": "npm:@typescript-eslint/typescript-estree@^8.55.0"
+  }
+}
