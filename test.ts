@@ -42,18 +42,18 @@ Deno.test("test typecheck ok", () => {
   assertEquals(
     typecheck(parse("(x: number) => 1"), genEnv()),
     {
-      tag: "Function",
-      paramTypes: [{ name: "x", type: { tag: "Number" } }],
-      returnType: { tag: "Number" },
+      tag: "Func",
+      params: [{ name: "x", type: { tag: "Number" } }],
+      retType: { tag: "Number" },
     },
   );
 
   assertEquals(
     typecheck(parse("(x: number) => x"), genEnv()),
     {
-      tag: "Function",
-      paramTypes: [{ name: "x", type: { tag: "Number" } }],
-      returnType: { tag: "Number" },
+      tag: "Func",
+      params: [{ name: "x", type: { tag: "Number" } }],
+      retType: { tag: "Number" },
     },
   );
 
@@ -158,11 +158,54 @@ Deno.test("test typecheck complex", () => {
   assertEquals(
     typecheck(
       parse(
-      `const a = { x: 1, y: true };
+        `const a = { x: 1, y: true };
       a.y;`,
       ),
       genEnv(),
     ),
     { tag: "Boolean" },
   );
+
+  assertEquals(
+    typecheck(
+      parse(`
+        const foo = (x: { bar: number }) => x.bar;
+        foo({ bar: 42, baz: true });`),
+      genEnv(),
+    ),
+    { tag: "Number" },
+  );
+
+  assertEquals(
+    typecheck(
+      parse(`
+        type F = () => { a: number, b: boolean };
+        const foo = (x: F) => x().a;
+        foo(() => ({ a: 42, b: true }));
+      `),
+      genEnv(),
+    ),
+    { tag: "Number" },
+  );
+
+  assertEquals(
+    typecheck(
+      parse(`
+        type NumStream = { head: number, tail: () => NumStream };
+        function numbers(n: number): NumStream {
+          return { head: n, tail: () => numbers(n + 1) };
+        }
+        const a = numbers(0);
+        const b = a.tail().tail().head;
+        b;
+      `),
+      genEnv(),
+    ),
+    { tag: "Number" },
+  );
+
+  // TODO
+  // type Hungry = <T>(a: T) => Hungry;
+  // const hungry = <T>(a: T) => hungry;
+  // hungry(1)(2)(false)(4)
 });
